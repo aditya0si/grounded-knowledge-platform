@@ -106,6 +106,11 @@ def eval_corpus() -> int:
     return _mod("scripts/build_corpus.py")
 
 
+def eval_retrieval() -> int:
+    """Measure the dense-only baseline and write results/BASELINE.md."""
+    return _mod("-m", "gkp.eval.runners.baseline")
+
+
 def check() -> int:
     """The full local gate, in the same order CI runs it."""
     for step in (lint, fmt_check, typecheck, test):
@@ -131,6 +136,7 @@ TASKS: dict[str, tuple[Callable[[], int], str]] = {
     "test-all": (test_all, "all tests"),
     "cov": (cov, "unit tests with coverage"),
     "eval-corpus": (eval_corpus, "rebuild corpus + golden set"),
+    "eval-retrieval": (eval_retrieval, "measure dense-only baseline"),
     "check": (check, "lint + format + types + tests"),
 }
 

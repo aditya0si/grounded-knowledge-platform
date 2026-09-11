@@ -61,8 +61,12 @@ class Settings(BaseSettings):
     redis_connect_timeout_s: float = 3.0
 
     # -- retrieval ----------------------------------------------------------
-    embedding_model: str = "BAAI/bge-base-en-v1.5"
-    embedding_dim: int = 768
+    # bge-small (384 dims) is the starting point: it is an ONNX model with no
+    # torch dependency, so the whole retrieval stack installs and runs on a
+    # laptop and in CI without a multi-gigabyte download. Larger models are an
+    # M3 ablation, not an assumption.
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_dim: int = 384
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     # -- generation (optional) ----------------------------------------------

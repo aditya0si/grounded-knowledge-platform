@@ -37,8 +37,8 @@ Honest, per-milestone. Nothing below claims to be finished when it is not.
 | Milestone | Scope | State |
 |---|---|---|
 | **M0** | Skeleton, dev stack, CI, strict typing | ✅ complete |
-| **M1** | Corpus, golden set, metric functions, dense baseline, ACL negative control | 🚧 in progress |
-| **M2** | Hybrid retrieval (RRF) + cross-encoder rerank, proven by ablation | ⬜ planned |
+| **M1** | Corpus, golden set, metric functions, dense baseline, ACL negative control | ✅ complete |
+| **M2** | Hybrid retrieval (RRF) + cross-encoder rerank, proven by ablation | 🚧 in progress |
 | **M3** | Parsing / chunking / embedding ablation | ⬜ planned |
 | **M4** | Durable, idempotent ingestion | ⬜ planned |
 | **M5** | Tenancy and authentication | ⬜ planned |
@@ -48,6 +48,46 @@ Honest, per-milestone. Nothing below claims to be finished when it is not.
 
 The full plan, including the milestone acceptance criteria, lives in
 [`.hermes/plans/`](.hermes/plans/).
+
+## Measured baseline
+
+Dense retrieval alone, measured before hybrid retrieval or reranking exists, so
+M2 has something to beat that was measured rather than assumed. Full report with
+per-category breakdowns: [`results/BASELINE.md`](results/BASELINE.md).
+
+**Corpus:** 89 documents · 153,558 characters · 325 chunks · 54 questions
+(42 answerable, 12 unanswerable). **Embedder:** `BAAI/bge-small-en-v1.5` (384d).
+
+| metric | k | mean | 95% CI | n |
+|---|---|---|---|---|
+| recall | 1 | 0.6071 | [0.464, 0.738] | 42 |
+| recall | 5 | 0.9167 | [0.821, 0.988] | 42 |
+| recall | 10 | 0.9167 | [0.821, 0.988] | 42 |
+| recall | 20 | 0.9762 | [0.929, 1.000] | 42 |
+| nDCG | 10 | 0.7919 | [0.696, 0.875] | 42 |
+| MRR | 20 | 0.7621 | [0.659, 0.857] | 42 |
+
+**Permission controls: 0 leaks.** Two negative controls run on every question — a
+principal holding a tag no document carries must retrieve nothing, and a principal
+holding every corpus tag *except* the ones a question requires must retrieve none
+of that question's gold documents. Any nonzero count fails the run. This is an
+invariant, not a metric.
+
+Two things this baseline already shows, stated rather than smoothed over:
+
+- **recall@5 = recall@10 exactly.** Retrieving more does not help past five, so
+  the remaining misses are a *ranking* problem, not a window problem. That is
+  precisely the failure hybrid retrieval and reranking are supposed to address,
+  and it is the gap M2 has to close.
+- **recall@20 = 0.9762, and exactly one question never retrieves its gold chunk at
+  any window size.** It is `f_ticket_split_table` — *"What caused the relevance
+  regression reported by a customer in INC-88490?"* — whose gold chunk contains
+  the literal string `INC-88490`, and whose top-6 results are six *other* monthly
+  ticket archives that share its vocabulary. A dense arm cannot distinguish an
+  exact identifier from a semantically similar one. This is the textbook case for
+  the sparse arm and is the concrete hypothesis M2 has to test.
+- **policy-lookup recall@10 is 0.75** against 1.00 for version-conflict and
+  restricted questions. The category that looks easiest is the one that fails.
 
 ## Architecture
 
@@ -159,14 +199,16 @@ src/gkp/
 
 Stated up front so the numbers above are read in context:
 
-- **No retrieval-quality numbers are published yet.** M1 produces the dense
-  baseline; M2 produces the ablation. Anything shown before then would be a
-  measurement of the harness rather than the system.
-- **The evaluation corpus is synthetic.** The *methodology* is real and the
-  corpus is published and reproducible; the *document distribution* is not a
-  real enterprise corpus. This is stated in the results, not buried.
+- **The evaluation corpus is synthetic.** The *methodology* is real — the corpus
+  is published, the gold labels are derived from construction, and the harness
+  is gated in CI — but the document *distribution* is not a real enterprise
+  corpus. This is repeated in every results file, not buried here.
 - **Single-node Postgres.** The ACL design is scale-ready; the deployment is not.
-  No horizontal-scale claim is made.
+  No horizontal-scale claim is made, and the chunk count at which the ANN index
+  was tested is stated rather than generalised from.
+- **No generation quality is claimed yet.** M6 adds citations and refusal
+  behaviour. Until then the 12 unanswerable questions measure nothing and are
+  excluded from every mean, which is why the `excluded` column exists.
 - **No uptime, throughput-at-scale, or cost-per-user figures** until M7's load
   test and a live deployment actually produce them. If they are not measured,
   they are not published.
