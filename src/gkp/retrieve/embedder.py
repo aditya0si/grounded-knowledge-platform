@@ -95,11 +95,16 @@ class HashEmbedder(Embedder):
 class FastEmbedEmbedder(Embedder):
     """ONNX BGE embeddings via ``fastembed``. No torch."""
 
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, cache_dir: str | None = None) -> None:
         from fastembed import TextEmbedding  # imported lazily: optional at test time
 
         self._model_name = model_name
-        self._model = TextEmbedding(model_name=model_name)
+        # Called with explicit keywords rather than **kwargs: mypy cannot match
+        # the overloads through a dict, and the explicit form is clearer anyway.
+        if cache_dir is None:
+            self._model = TextEmbedding(model_name=model_name)
+        else:
+            self._model = TextEmbedding(model_name=model_name, cache_dir=cache_dir)
         probe = next(iter(self._model.embed(["dimension probe"])))
         self._dim = int(probe.shape[0])
 
@@ -118,7 +123,9 @@ class FastEmbedEmbedder(Embedder):
         return self._normalise(matrix)
 
 
-def build_embedder(model_name: str, *, allow_hash: bool = False) -> Embedder:
+def build_embedder(
+    model_name: str, *, cache_dir: str | None = None, allow_hash: bool = False
+) -> Embedder:
     """Construct an embedder by name.
 
     ``"hash"`` selects the non-semantic embedder and must be opted into
@@ -132,4 +139,4 @@ def build_embedder(model_name: str, *, allow_hash: bool = False) -> Embedder:
                 "Pass allow_hash=True to use it for plumbing tests only."
             )
         return HashEmbedder()
-    return FastEmbedEmbedder(model_name)
+    return FastEmbedEmbedder(model_name, cache_dir=cache_dir)

@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     # M3 ablation, not an assumption.
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     embedding_dim: int = 384
+    #: Where the embedding model is cached. Unset means the library's default
+    #: (a temp directory), which re-downloads after any temp cleanup. Setting it
+    #: makes the cache cacheable in CI and stable across runs.
+    embedding_cache_dir: str | None = None
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     # -- generation (optional) ----------------------------------------------

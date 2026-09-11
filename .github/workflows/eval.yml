@@ -1,0 +1,107 @@
+name: eval
+
+# Retrieval quality gate.
+#
+# This job is the reason the corpus and golden set exist. It re-measures the
+# committed dense baseline against the same corpus, the same golden set, and the
+# same embedding model, and fails the build if either the accuracy floors or the
+# permission invariant regress.
+#
+# It runs only when something that could move the numbers changes. Widening it to
+# every push would make CI slower without making it stricter.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/gkp/eval/**"
+      - "src/gkp/retrieve/**"
+      - "src/gkp/db/**"
+      - "corpus/**"
+      - "eval/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/eval.yml"
+  pull_request:
+    paths:
+      - "src/gkp/eval/**"
+      - "src/gkp/retrieve/**"
+      - "src/gkp/db/**"
+      - "corpus/**"
+      - "eval/**"
+      - "pyproject.toml"
+      - "uv.lock"
+  workflow_dispatch:
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UV_FROZEN: "1"
+  # A stable cache directory, so the embedding model is downloaded once per
+  # cache lifetime instead of once per run.
+  GKP_EMBEDDING_CACHE_DIR: ${{ github.workspace }}/.cache/fastembed
+  GKP_DATABASE_URL: postgresql+asyncpg://gkp:gkp@localhost:5434/gkp
+
+jobs:
+  retrieval-gate:
+    name: retrieval quality gate
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # pgvector is required, so this cannot be the stock postgres image.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: gkp
+          POSTGRES_PASSWORD: gkp
+          POSTGRES_DB: gkp
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U gkp -d gkp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GKP_EMBEDDING_CACHE_DIR }}
+          key: fastembed-bge-small-en-v1.5
+
+      - name: Dense baseline with regression gate
+        # Floors are set just below the committed baseline in results/BASELINE.md
+        # (recall@10 = 0.9167, nDCG@10 = 0.7919). The tolerance absorbs
+        # cross-platform float differences in ONNX inference; tighten them to the
+        # measured values once this job has a stable history on the runner.
+        #
+        # Exit codes are distinct on purpose: 1 is a permission leak, 2 an invalid
+        # configuration, 3 an accuracy regression.
+        run: |
+          uv run python -m gkp.eval.runners.baseline \
+            --min-recall-at-10 0.90 \
+            --min-ndcg-at-10 0.75
+
+      - name: Upload retrieval report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-report
+          path: results/BASELINE.md
+          if-no-files-found: ignore

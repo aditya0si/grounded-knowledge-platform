@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
 import platform
 import shutil
 import subprocess
@@ -259,12 +260,18 @@ async def _run_acl_controls(
     return control
 
 
-async def run(*, ks: tuple[int, ...], limit: int) -> int:
+async def run(
+    *,
+    ks: tuple[int, ...],
+    limit: int,
+    min_recall_at_10: float | None = None,
+    min_ndcg_at_10: float | None = None,
+) -> int:
     settings = get_settings()
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     RAW_DIR.mkdir(parents=True, exist_ok=True)
 
-    embedder = build_embedder(settings.embedding_model)
+    embedder = build_embedder(settings.embedding_model, cache_dir=settings.embedding_cache_dir)
     if not embedder.is_semantic:
         print(
             f"refusing to publish a report from non-semantic embedder {embedder.name!r}",
@@ -411,7 +418,50 @@ async def run(*, ks: tuple[int, ...], limit: int) -> int:
         for leak in control.leaks[:10]:
             print(f"  {leak}", file=sys.stderr)
         return 1
+
+    regressions = _check_thresholds(
+        overall, min_recall_at_10=min_recall_at_10, min_ndcg_at_10=min_ndcg_at_10
+    )
+    if regressions:
+        print("\nRETRIEVAL REGRESSION", file=sys.stderr)
+        for message in regressions:
+            print(f"  {message}", file=sys.stderr)
+        return 3
     return 0
+
+
+def _metric_value(rows: list[MetricRow], metric: str, k: int) -> float | None:
+    for row in rows:
+        if row.metric == metric and row.k == k:
+            return None if math.isnan(row.mean) else row.mean
+    return None
+
+
+def _check_thresholds(
+    overall: list[MetricRow],
+    *,
+    min_recall_at_10: float | None,
+    min_ndcg_at_10: float | None,
+) -> list[str]:
+    """Compare measured aggregates against the committed gate.
+
+    Exit code 3 on failure, distinct from 1 (a permission leak) and 2 (an invalid
+    configuration), so CI can tell an accuracy regression apart from a security
+    failure from a setup error without parsing the log.
+    """
+    regressions: list[str] = []
+    for label, metric, required in (
+        ("recall@10", "recall", min_recall_at_10),
+        ("nDCG@10", "ndcg", min_ndcg_at_10),
+    ):
+        if required is None:
+            continue
+        measured = _metric_value(overall, metric, 10)
+        if measured is None:
+            regressions.append(f"{label} is undefined but a floor of {required} was required")
+        elif measured < required:
+            regressions.append(f"{label} = {measured:.4f} is below the required {required:.4f}")
+    return regressions
 
 
 def _render_report(
@@ -537,6 +587,20 @@ def main(argv: list[str] | None = None) -> int:
         default=20,
         help="candidate window requested from the retriever",
     )
+    parser.add_argument(
+        "--min-recall-at-10",
+        type=float,
+        default=None,
+        metavar="FLOOR",
+        help="exit 3 if recall@10 falls below this value",
+    )
+    parser.add_argument(
+        "--min-ndcg-at-10",
+        type=float,
+        default=None,
+        metavar="FLOOR",
+        help="exit 3 if nDCG@10 falls below this value",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -555,7 +619,14 @@ def main(argv: list[str] | None = None) -> int:
 
     # Outside the event loop on purpose: Alembic's env.py owns its own asyncio.run.
     _migrate()
-    return asyncio.run(run(ks=ks, limit=args.limit))
+    return asyncio.run(
+        run(
+            ks=ks,
+            limit=args.limit,
+            min_recall_at_10=args.min_recall_at_10,
+            min_ndcg_at_10=args.min_ndcg_at_10,
+        )
+    )
 
 
 if __name__ == "__main__":

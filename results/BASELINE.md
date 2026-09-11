@@ -7,17 +7,17 @@ hand-written table: M2's hybrid retrieval must beat these numbers.
 
 | field | value |
 | --- | --- |
-| run id | `20260911T215144Z` |
-| git commit | `15b544c` |
+| run id | `20260911T220654Z` |
+| git commit | `1cc9370` |
 | corpus hash | `f8a20a1971ff9bd5` |
 | embedder | `BAAI/bge-small-en-v1.5` (dim 384) |
-| chunking | 512 chars / 64 overlap, structural |
+| chunking | 512c / 64c overlap, structural |
 | documents | 89 |
 | chunks | 325 |
 | candidate limit | 20 |
 | questions | 54 (42 answerable) |
-| index time | 173.6s |
-| query time | 19.5s total |
+| index time | 157.6s |
+| query time | 14.8s total |
 | host | Aditya · Python 3.12.13 |
 
 ## Overall
