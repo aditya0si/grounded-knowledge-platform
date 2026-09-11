@@ -98,6 +98,14 @@ def cov() -> int:
     return _mod("-m", "pytest", "-m", "not integration", "--cov", "--cov-report=term-missing")
 
 
+# -- evaluation -------------------------------------------------------------
+
+
+def eval_corpus() -> int:
+    """Rebuild the corpus, chunk it, and regenerate the golden set."""
+    return _mod("scripts/build_corpus.py")
+
+
 def check() -> int:
     """The full local gate, in the same order CI runs it."""
     for step in (lint, fmt_check, typecheck, test):
@@ -122,6 +130,7 @@ TASKS: dict[str, tuple[Callable[[], int], str]] = {
     "test": (test, "unit tests (no infrastructure)"),
     "test-all": (test_all, "all tests"),
     "cov": (cov, "unit tests with coverage"),
+    "eval-corpus": (eval_corpus, "rebuild corpus + golden set"),
     "check": (check, "lint + format + types + tests"),
 }
 
