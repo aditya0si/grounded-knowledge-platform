@@ -1,0 +1,19 @@
+# Normalise line endings so the Windows development machine and the Linux CI
+# runner produce identical diffs. Without this, every checkout on Windows
+# rewrites the whole tree.
+* text=auto eol=lf
+
+# Binary fixtures must never be line-ending mangled.
+*.pdf  binary
+*.docx binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.safetensors binary
+
+# Generated eval output is committed as data, not diffed as prose.
+results/*.jsonl -diff
+
+# Keep lock files out of review noise but visible in diffs.
+uv.lock linguist-generated=true

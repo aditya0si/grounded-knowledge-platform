@@ -1,0 +1,56 @@
+name: gkp
+
+# Ports are deliberately offset from the defaults (5434/6381) so this stack can
+# run alongside other local Postgres/Redis containers without a collision.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: gkp
+      POSTGRES_PASSWORD: gkp
+      POSTGRES_DB: gkp
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gkp -d gkp"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6381:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    # Object storage for uploaded originals and rendered corpus artifacts.
+    # Unused until M4; started here so the dev stack matches the target topology.
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: gkp
+      MINIO_ROOT_PASSWORD: gkp-dev-only
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    volumes:
+      - minio-data:/data
+
+volumes:
+  pgdata:
+  minio-data:

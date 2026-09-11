@@ -1,0 +1,48 @@
+# --- secrets / local config -------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# --- python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# --- model + data artifacts (never commit weights or generated indexes) ------
+models/
+*.safetensors
+*.bin
+*.onnx
+.cache/
+
+# --- eval run output: results/ IS committed, raw per-row dumps are not -------
+results/raw/
+results/*.jsonl
+!results/BASELINE.md
+!results/ABLATION.md
+
+# --- fixtures: the hostile test corpus is committed, generated binaries are not
+corpus/generated/
+*.pdf.out
+
+# --- os / editor ------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# --- local infra ------------------------------------------------------------
+pgdata/
+minio-data/
