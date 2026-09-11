@@ -86,17 +86,25 @@ jobs:
           key: fastembed-bge-small-en-v1.5
 
       - name: Dense baseline with regression gate
-        # Floors are set just below the committed baseline in results/BASELINE.md
-        # (recall@10 = 0.9167, nDCG@10 = 0.7919). The tolerance absorbs
-        # cross-platform float differences in ONNX inference; tighten them to the
-        # measured values once this job has a stable history on the runner.
+        # Floors are the measured baseline from results/BASELINE.md
+        # (recall@10 = 0.9167, nDCG@10 = 0.7919), minus a hair.
+        #
+        # The margin is deliberately *under one question*. Cross-platform
+        # reproducibility was verified empirically rather than assumed: the
+        # Windows development run and this Ubuntu runner produced identical
+        # values for every metric, the corpus hash, and all 42 permission
+        # controls. Losing a single question moves recall@10 by ~0.012-0.024, so
+        # a floor at 0.9160 fails on exactly that. The hair of slack below the
+        # measured value exists because 0.9167 is a rounded rendering of a
+        # repeating fraction, and a gate that fails on float rounding teaches
+        # people to ignore it.
         #
         # Exit codes are distinct on purpose: 1 is a permission leak, 2 an invalid
         # configuration, 3 an accuracy regression.
         run: |
           uv run python -m gkp.eval.runners.baseline \
-            --min-recall-at-10 0.90 \
-            --min-ndcg-at-10 0.75
+            --min-recall-at-10 0.9160 \
+            --min-ndcg-at-10 0.7910
 
       - name: Upload retrieval report
         if: always()

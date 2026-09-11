@@ -40,6 +40,26 @@ chunking configuration, and the git commit, so a number is attributable to an
 exact input. If any of those change, the number is a different measurement — and
 the report says so rather than inviting the comparison.
 
+### Cross-platform reproducibility, verified
+
+The same evaluation was run on Windows 11 during development and on the Ubuntu CI
+runner. Every metric, the corpus hash, the chunk count, and all 42 permission
+controls matched exactly:
+
+| | Windows 11 (local) | Ubuntu (CI) |
+|---|---|---|
+| corpus hash | `f8a20a1971ff9bd5` | `f8a20a1971ff9bd5` |
+| chunks / questions | 325 / 54 | 325 / 54 |
+| recall@10 | 0.9167 | 0.9167 |
+| nDCG@10 | 0.7919 | 0.7919 |
+| permission leaks | 0 | 0 |
+
+This is what makes the CI gate possible at all: a gate on a number that drifts
+between machines either flaps until it is loosened into uselessness, or fails on
+every unrelated commit. Because the agreement is exact, the gate in
+`.github/workflows/eval.yml` is set less than one question below the measured
+baseline rather than at a comfortable margin.
+
 ## The one caveat that applies to everything here
 
 **The corpus is synthetic.** The evaluation *methodology* is real and the corpus is
