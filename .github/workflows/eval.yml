@@ -69,10 +69,10 @@ jobs:
           --health-retries 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v10
         with:
           enable-cache: true
 
@@ -80,7 +80,7 @@ jobs:
         run: uv sync --all-extras
 
       - name: Cache embedding model
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.GKP_EMBEDDING_CACHE_DIR }}
           key: fastembed-bge-small-en-v1.5
@@ -108,7 +108,7 @@ jobs:
 
       - name: Upload retrieval report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: baseline-report
           path: results/BASELINE.md
